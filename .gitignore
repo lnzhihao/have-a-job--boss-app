@@ -1,0 +1,14 @@
+node_modules/
+dist/
+chrome-profile/
+*.log
+.DS_Store
+
+# 本地数据 / 隐私（绝不上传）：API Key、登录态、投递记录、统计、简历
+config.json
+storage_state.json
+sent_resume.json
+sessions.json
+stats.json
+last_search.png
+*.pdf

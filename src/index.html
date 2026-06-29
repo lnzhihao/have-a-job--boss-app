@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BOSS Agent</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-user-select: none; user-select: none; }
+
+  body {
+    background: #14141c;
+    font-family: -apple-system, 'PingFang SC', sans-serif;
+    font-size: 13px;
+  }
+
+  /* 主卡片 */
+  .card {
+    width: 380px;
+    min-height: 560px;
+    background: #14141c;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.1);
+    overflow: hidden;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.05);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 可拖拽标题栏 */
+  .titlebar {
+    -webkit-app-region: drag;
+    padding: 14px 16px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .titlebar-left { display: flex; align-items: center; gap: 10px; }
+  .app-icon {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, #FF6B00, #FF9500);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .app-name { font-size: 14px; font-weight: 600; color: #fff; letter-spacing: -.2px; }
+  .app-sub { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 1px; }
+
+  .titlebar-right { display: flex; gap: 6px; -webkit-app-region: no-drag; }
+  .win-btn {
+    width: 12px; height: 12px; border-radius: 50%; border: none; cursor: pointer;
+    transition: opacity .15s;
+  }
+  .win-btn:hover { opacity: .7; }
+  .btn-close { background: #FF5F57; }
+  .btn-min   { background: #FEBC2E; }
+  .btn-hide  { background: #28C840; }
+
+  /* 状态条 */
+  .status-bar {
+    padding: 8px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(255,107,0,0.08);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .status-left { display: flex; align-items: center; gap: 8px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #444; flex-shrink: 0; }
+  .dot.running { background: #34D399; animation: blink 1.5s infinite; }
+  .dot.paused  { background: #FEBC2E; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .status-text { font-size: 12px; color: rgba(255,255,255,.6); }
+  .status-count { font-size: 12px; color: rgba(255,255,255,.4); }
+
+  /* 指标行 */
+  .metrics { display: grid; grid-template-columns: repeat(4,1fr); gap: 1px; background: rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .metric { background: rgba(20,20,28,0.95); padding: 10px 8px; text-align: center; }
+  .metric-val { font-size: 20px; font-weight: 600; color: #fff; line-height: 1; }
+  .metric-val.orange { color: #FF9500; }
+  .metric-val.green  { color: #34D399; }
+  .metric-val.gray   { color: rgba(255,255,255,.3); }
+  .metric-lbl { font-size: 10px; color: rgba(255,255,255,.35); margin-top: 4px; }
+
+  /* 标签页 */
+  .tabs { display: flex; padding: 10px 16px 0; gap: 2px; }
+  .tab {
+    padding: 5px 12px; border-radius: 8px 8px 0 0;
+    font-size: 12px; color: rgba(255,255,255,.4);
+    cursor: pointer; transition: all .15s; border: none;
+    background: transparent;
+  }
+  .tab.active { background: rgba(255,255,255,.08); color: #fff; font-weight: 500; }
+  .tab:hover:not(.active) { color: rgba(255,255,255,.6); }
+
+  /* 内容区 */
+  .content {
+    flex: 1; overflow-y: auto; padding: 14px 16px;
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.1) transparent;
+  }
+  .content::-webkit-scrollbar { width: 4px; }
+  .content::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* 区块 */
+  .section { margin-bottom: 14px; }
+  .section-label { font-size: 11px; color: rgba(255,255,255,.3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+
+  /* 规则行 */
+  .rule-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 12px; background: rgba(255,255,255,.04);
+    border-radius: 10px; margin-bottom: 6px;
+    border: 1px solid rgba(255,255,255,.06);
+  }
+  .rule-left { flex: 1; }
+  .rule-title { font-size: 13px; color: rgba(255,255,255,.85); }
+  .rule-desc  { font-size: 11px; color: rgba(255,255,255,.3); margin-top: 2px; }
+
+  /* 标签 */
+  .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+  .tag {
+    padding: 3px 10px; border-radius: 20px; font-size: 11px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,.12); color: rgba(255,255,255,.4);
+    transition: all .15s;
+  }
+  .tag.on { background: rgba(255,107,0,.2); border-color: rgba(255,107,0,.5); color: #FF9500; }
+
+  /* 开关 */
+  .toggle { position: relative; width: 32px; height: 18px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .knob { position: absolute; inset: 0; background: rgba(255,255,255,.15); border-radius: 18px; cursor: pointer; transition: .2s; }
+  .knob::before { content:''; position: absolute; width: 12px; height: 12px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; }
+  input:checked + .knob { background: #FF6B00; }
+  input:checked + .knob::before { transform: translateX(14px); }
+
+  /* 输入框 */
+  .input-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  input[type=number], input[type=text] {
+    flex: 1; padding: 7px 10px;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+    border-radius: 8px; color: #fff; font-size: 13px; outline: none;
+    -webkit-user-select: text; user-select: text;
+  }
+  input[type=number]:focus, input[type=text]:focus { border-color: rgba(255,107,0,.5); }
+  .input-unit { font-size: 12px; color: rgba(255,255,255,.35); }
+
+  /* 话术 */
+  .greeting-card {
+    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07);
+    border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;
+  }
+  .greeting-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .greeting-name { font-size: 12px; font-weight: 500; color: rgba(255,255,255,.8); }
+  .badge-default { font-size: 10px; padding: 2px 8px; border-radius: 20px; background: rgba(255,107,0,.2); color: #FF9500; }
+  .greeting-text { font-size: 12px; color: rgba(255,255,255,.5); line-height: 1.6; }
+  .greeting-var  { color: #FF9500; }
+
+  /* 日志 */
+  .log-box {
+    background: rgba(0,0,0,.3); border-radius: 10px; padding: 10px;
+    font-family: 'SF Mono', 'Menlo', monospace; font-size: 11px;
+    max-height: 220px; overflow-y: auto;
+    border: 1px solid rgba(255,255,255,.06);
+  }
+  .log-line { display: flex; gap: 8px; padding: 2px 0; }
+  .log-t    { color: rgba(255,255,255,.2); flex-shrink: 0; }
+  .log-ok   { color: #34D399; }
+  .log-warn { color: #FEBC2E; }
+  .log-info { color: rgba(255,255,255,.45); }
+  .log-skip { color: rgba(255,255,255,.2); }
+
+  /* 进度条 */
+  .progress-wrap { background: rgba(255,255,255,.08); border-radius: 20px; height: 5px; margin-top: 10px; overflow: hidden; }
+  .progress-fill { height: 5px; background: linear-gradient(90deg,#FF6B00,#FF9500); border-radius: 20px; transition: width .5s; }
+
+  /* 按钮 */
+  .btn-row { display: flex; gap: 8px; margin-top: 12px; }
+  .btn-start {
+    flex: 1; padding: 10px; border-radius: 10px; border: none; cursor: pointer;
+    font-size: 13px; font-weight: 600;
+    background: linear-gradient(135deg,#FF6B00,#FF9500);
+    color: #fff; transition: opacity .15s;
+  }
+  .btn-start:hover { opacity: .88; }
+  .btn-start:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-start.stop { background: rgba(255,255,255,.1); color: rgba(255,255,255,.6); }
+
+  .btn-ghost {
+    padding: 10px 14px; border-radius: 10px; cursor: pointer;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+    color: rgba(255,255,255,.6); font-size: 13px; transition: all .15s;
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,.1); color: #fff; }
+
+  /* 底部 */
+  .footer {
+    padding: 8px 16px 12px;
+    border-top: 1px solid rgba(255,255,255,.06);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .footer-tip { font-size: 11px; color: rgba(255,255,255,.2); }
+  .link-btn {
+    font-size: 11px; color: rgba(255,107,0,.7); cursor: pointer;
+    text-decoration: none; background: none; border: none;
+  }
+  .link-btn:hover { color: #FF9500; }
+
+  /* API key 输入区 */
+  .api-row {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 12px; background: rgba(255,165,0,.07);
+    border: 1px solid rgba(255,165,0,.2); border-radius: 10px; margin-bottom: 12px;
+  }
+  .api-icon { font-size: 14px; }
+  input.api-input {
+    flex: 1; background: transparent; border: none;
+    color: rgba(255,255,255,.7); font-size: 12px; font-family: 'SF Mono', monospace;
+  }
+  input.api-input::placeholder { color: rgba(255,255,255,.25); }
+</style>
+</head>
+<body>
+<div class="card">
+
+  <!-- 标题栏 -->
+  <div class="titlebar">
+    <div class="titlebar-left">
+      <div class="app-icon">🤖</div>
+      <div>
+        <div class="app-name">BOSS Agent</div>
+        <div class="app-sub">智能投递 · 自动回复</div>
+      </div>
+    </div>
+    <div class="titlebar-right">
+      <button class="win-btn btn-close" onclick="closeApp()"></button>
+      <button class="win-btn btn-min"   onclick="hideApp()"></button>
+      <button class="win-btn btn-hide"  onclick="openBoss()"></button>
+    </div>
+  </div>
+
+  <!-- 状态条 -->
+  <div class="status-bar">
+    <div class="status-left">
+      <div class="dot" id="dot"></div>
+      <span class="status-text" id="statusText">待启动</span>
+    </div>
+    <span class="status-count" id="statusCount">今日 0 / 50</span>
+  </div>
+
+  <!-- 指标 -->
+  <div class="metrics">
+    <div class="metric">
+      <div class="metric-val orange" id="mSent">0</div>
+      <div class="metric-lbl">已投递</div>
+    </div>
+    <div class="metric">
+      <div class="metric-val green" id="mReply">0</div>
+      <div class="metric-lbl">HR回复</div>
+    </div>
+    <div class="metric">
+      <div class="metric-val" id="mAuto" style="color:#60A5FA">0</div>
+      <div class="metric-lbl">已发简历</div>
+    </div>
+    <div class="metric">
+      <div class="metric-val gray" id="mSkip">0</div>
+      <div class="metric-lbl">已跳过</div>
+    </div>
+  </div>
+
+  <!-- 标签页 -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('rules',this)">规则</button>
+    <button class="tab" onclick="switchTab('greet',this)">话术</button>
+    <button class="tab" onclick="switchTab('log',this)">日志</button>
+    <button class="tab" onclick="switchTab('advice',this)">建议</button>
+    <button class="tab" onclick="switchTab('set',this)">设置</button>
+  </div>
+
+  <!-- 内容区 -->
+  <div class="content">
+
+    <!-- 规则面板 -->
+    <div class="panel active" id="panel-rules">
+      <div class="section">
+        <div class="section-label">目标区域</div>
+        <div class="tags">
+          <span class="tag on" onclick="toggleTag(this)">南山</span>
+          <span class="tag on" onclick="toggleTag(this)">前海</span>
+          <span class="tag on" onclick="toggleTag(this)">宝安</span>
+          <span class="tag" onclick="toggleTag(this)">福田</span>
+          <span class="tag" onclick="toggleTag(this)">龙华</span>
+          <span class="tag" onclick="toggleTag(this)">不限</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">薪资范围（k/月）</div>
+        <div class="input-row">
+          <input type="number" id="minSal" value="13" min="1" max="100">
+          <span class="input-unit">k ～</span>
+          <input type="number" id="maxSal" value="30" min="1" max="200">
+          <span class="input-unit">k</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">目标岗位关键词</div>
+        <div class="tags">
+          <span class="tag on" onclick="toggleTag(this)">海外新媒体运营</span>
+          <span class="tag on" onclick="toggleTag(this)">海外营销</span>
+          <span class="tag on" onclick="toggleTag(this)">海外运营</span>
+          <span class="tag on" onclick="toggleTag(this)">社媒运营</span>
+          <span class="tag" onclick="toggleTag(this)">新媒体运营</span>
+          <span class="tag" onclick="toggleTag(this)">内容营销</span>
+          <span class="tag" onclick="toggleTag(this)">品牌营销</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="rule-row">
+          <div class="rule-left">
+            <div class="rule-title">过滤不活跃 HR</div>
+            <div class="rule-desc">超过 3 天未上线自动跳过</div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked id="tActive"><span class="knob"></span></label>
+        </div>
+        <div class="rule-row">
+          <div class="rule-left">
+            <div class="rule-title">AI 智能评分</div>
+            <div class="rule-desc">低于 60 分不投递</div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked id="tScore"><span class="knob"></span></label>
+        </div>
+        <div class="rule-row">
+          <div class="rule-left">
+            <div class="rule-title">自动回复 HR 消息</div>
+            <div class="rule-desc">规则匹配 + Claude AI 回复</div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked id="tReply"><span class="knob"></span></label>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-start" id="btnLogin" onclick="bossLogin()"
+          style="background:linear-gradient(135deg,#3B82F6,#60A5FA)">🔌 连接 Chrome（先双击调试模式脚本）</button>
+      </div>
+      <div id="loginStatus" style="font-size:11px;color:rgba(255,255,255,.4);margin:2px 0 10px">连接状态：检测中…</div>
+
+      <div class="btn-row">
+        <button class="btn-start" id="btnFlow1" onclick="toggleFlow1()">🚀 流程一 · 打招呼</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn-start" id="btnFlow2" onclick="toggleFlow2()"
+          style="background:linear-gradient(135deg,#10B981,#34D399)">👂 流程二 · 监听发简历</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn-ghost" style="flex:1" onclick="openBoss()">打开 BOSS</button>
+        <button class="btn-ghost" style="flex:1" onclick="openMsg()">打开消息</button>
+      </div>
+      <div style="font-size:11px;color:rgba(255,255,255,.3);margin-top:8px;line-height:1.5">
+        两个流程可单独跑也可同跑。首次启动会弹出浏览器，请扫码登录 BOSS（仅一次）。
+      </div>
+    </div>
+
+    <!-- 话术面板 -->
+    <div class="panel" id="panel-greet">
+      <div class="greeting-card" style="border-color:rgba(255,107,0,.3)">
+        <div class="greeting-text" style="color:rgba(255,255,255,.6)">
+          ⚙️ 当前策略（按你的要求）：<br>
+          · 打招呼 <b style="color:#FF9500">用 BOSS 里你设置的默认招呼语</b>，不自拟话术。<br>
+          · 海投模式：HR <b style="color:#34D399">一回复就发作品集链接 + 简历</b>（不等第二句），发完交还给你。不发多余客套话。<br>
+          下面的模板仅作存档参考，不会被发送。
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-label">打招呼模板（仅参考，不发送）</div>
+
+        <div class="greeting-card">
+          <div class="greeting-header">
+            <span class="greeting-name">模板 A · TikTok 实战</span>
+            <span class="badge-default">默认</span>
+          </div>
+          <div class="greeting-text">
+            您好，看到贵司在招<span class="greeting-var">[岗位名]</span>，
+            我有约18个月 TikTok Shop 实操经验（美国+巴西），
+            熟悉达人矩阵和 AI 短视频工作流。坐标深圳，随时沟通～
+          </div>
+        </div>
+
+        <div class="greeting-card">
+          <div class="greeting-header">
+            <span class="greeting-name">模板 B · AI Agent</span>
+          </div>
+          <div class="greeting-text">
+            Hi，关注到贵司<span class="greeting-var">[岗位名]</span>，
+            我在跨境运营中深度落地了 AI Agent 工作流——
+            选品→脚本→视频生成→发布全链路自动化。欢迎了解案例 :)
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">自动回复触发词</div>
+        <div class="rule-row">
+          <div class="rule-left">
+            <div class="rule-title">问电话 / 沟通方式</div>
+            <div class="rule-desc">→ 方便！请问什么时候联系方便？</div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked><span class="knob"></span></label>
+        </div>
+        <div class="rule-row">
+          <div class="rule-left">
+            <div class="rule-title">问薪资期望</div>
+            <div class="rule-desc">→ 期望 20-28k，具体面谈</div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked><span class="knob"></span></label>
+        </div>
+        <div class="rule-row">
+          <div class="rule-left">
+            <div class="rule-title">问到岗时间</div>
+            <div class="rule-desc">→ 随时可以，最快一周内</div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked><span class="knob"></span></label>
+        </div>
+        <div class="rule-row">
+          <div class="rule-left">
+            <div class="rule-title">非匹配消息</div>
+            <div class="rule-desc">→ Claude AI 自动生成回复</div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked><span class="knob"></span></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- 日志面板 -->
+    <div class="panel" id="panel-log">
+      <div class="section">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div class="section-label" style="margin:0">运行记录</div>
+          <button class="link-btn" onclick="clearLog()">清空</button>
+        </div>
+        <div class="log-box" id="logBox">
+          <div class="log-line"><span class="log-t">--:--</span><span class="log-info">等待启动...</span></div>
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,.3);margin-bottom:5px">
+          <span>今日进度</span><span id="pgText">0 / 50</span>
+        </div>
+        <div class="progress-wrap"><div class="progress-fill" id="pgFill" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <!-- 建议面板 -->
+    <div class="panel" id="panel-advice">
+      <div class="section">
+        <div class="section-label">各方向回复率（反映市场对你的真实反馈）</div>
+        <div id="rateBox" style="font-size:12px;color:rgba(255,255,255,.6)">暂无数据，跑起来后自动统计</div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">最近一次 10 维度匹配度</div>
+        <div id="dimBox" style="font-size:11px;color:rgba(255,255,255,.5)">暂无评分</div>
+      </div>
+
+      <div class="section">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div class="section-label" style="margin:0">AI 求职建议</div>
+          <button class="link-btn" id="adviceBtn" onclick="genAdvice()">生成建议</button>
+        </div>
+        <div id="adviceBox" class="greeting-card" style="font-size:12px;color:rgba(255,255,255,.65);line-height:1.7;white-space:pre-wrap;max-height:240px;overflow-y:auto">
+          点「生成建议」，AI 会结合你的简历 + 各方向回复率，给一份可执行的求职建议。
+        </div>
+      </div>
+    </div>
+
+    <!-- 设置面板 -->
+    <div class="panel" id="panel-set">
+      <div class="section">
+        <div class="section-label">API Key（DeepSeek 或 Claude）</div>
+        <div class="api-row">
+          <span class="api-icon">🔑</span>
+          <input class="api-input" type="password" id="apiKey" placeholder="DeepSeek: sk-xxx ／ Claude: sk-ant-xxx">
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,.25);margin-top:4px">
+          用于 AI 评分/建议。上面「评分模型」选 DeepSeek 就填 DeepSeek 的 key，选 Claude 就填 sk-ant- 的。存本地，不上传。
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">评分模型</div>
+        <div class="input-row">
+          <select id="model" style="flex:1;padding:7px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-size:13px;outline:none">
+            <option value="deepseek-chat">DeepSeek（便宜 · 国内可用 · 默认）</option>
+            <option value="claude-opus-4-8">Claude Opus 4.8（最强）</option>
+            <option value="claude-sonnet-4-6">Claude Sonnet 4.6（更省）</option>
+            <option value="claude-haiku-4-5">Claude Haiku 4.5（最快最便宜）</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">流程二 · 简历与作品集</div>
+        <div class="input-row">
+          <input type="text" id="resumePath" placeholder="简历 PDF 路径" readonly style="cursor:pointer" onclick="pickResume()">
+          <button class="btn-ghost" style="padding:7px 12px" onclick="pickResume()">选择</button>
+        </div>
+        <div class="input-row">
+          <input type="text" id="portfolio" placeholder="作品集链接 https://...">
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,.25);margin-top:4px">
+          海投模式：HR 一回复就发作品集链接 + 点 BOSS 原生「发简历」发简历（不等第二句）。简历用你 BOSS 里已附的那份，PDF 路径只是兜底。
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">自动化与 HR 活跃时段</div>
+        <div class="rule-row">
+          <div class="rule-left">
+            <div class="rule-title">24 小时持续运行</div>
+            <div class="rule-desc">投满当日额度后等待，次日自动续投</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="continuous"><span class="knob"></span></label>
+        </div>
+        <div class="rule-row">
+          <div class="rule-left">
+            <div class="rule-title">仅在 HR 活跃时段操作</div>
+            <div class="rule-desc">避开 HR 不在线的时间</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="number" id="activeStart" value="9" min="0" max="23" style="width:42px">
+            <span class="input-unit">~</span>
+            <input type="number" id="activeEnd" value="20" min="1" max="24" style="width:42px">
+            <span class="input-unit">点</span>
+          </div>
+        </div>
+        <div class="rule-row">
+          <div class="rule-left">
+            <div class="rule-title">周末暂停</div>
+            <div class="rule-desc">周六日不主动打招呼</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="skipWeekend"><span class="knob"></span></label>
+        </div>
+        <div class="rule-row">
+          <div class="rule-left">
+            <div class="rule-title">HR 不活跃跳过</div>
+            <div class="rule-desc">超过 N 天未上线的 HR 不投</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="number" id="hrInactiveDays" value="3" min="1" max="60" style="width:48px">
+            <span class="input-unit">天</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">每日投递上限</div>
+        <div class="rule-row">
+          <div class="rule-left">
+            <div class="rule-title">最多投递次数</div>
+            <div class="rule-desc">BOSS 免费沟通约 30 次/天</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="range" min="5" max="60" value="50" id="dailyLimit"
+              style="width:70px;accent-color:#FF6B00"
+              oninput="document.getElementById('dlv').textContent=this.value">
+            <span style="font-size:13px;color:#fff;min-width:22px" id="dlv">50</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">候选人信息（AI 用于评分）</div>
+        <div class="rule-row" style="flex-direction:column;align-items:flex-start;gap:6px">
+          <div class="rule-title">背景摘要</div>
+          <textarea id="myProfile"
+            style="-webkit-user-select:text;user-select:text;width:100%;height:80px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px;color:rgba(255,255,255,.7);font-size:11px;line-height:1.6;resize:none;outline:none"
+            >求职方向：海外新媒体运营/海外营销。海外社媒矩阵运营(IG/YouTube/TikTok/FB)、KOL红人合作、内容营销与社媒投放，约18个月海外市场(美/巴西)经验，英文可工作，深圳南山</textarea>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-start" onclick="saveConfig()">保存配置</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 底部 -->
+  <div class="footer">
+    <span class="footer-tip" id="footerTip">就绪 · 配置好 API Key 后启动</span>
+    <button class="link-btn" onclick="openBoss()">打开 BOSS 直聘 ↗</button>
+  </div>
+
+</div>
+
+<script>
+// 网页版垫片：用 fetch + SSE 模拟 Electron 的 ipcRenderer，界面其余代码无需改动
+const ipcRenderer = (() => {
+  const handlers = {}
+  const es = new EventSource('/api/events')
+  es.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data)
+      if (handlers[msg.channel]) handlers[msg.channel](null, msg.payload)
+    } catch (_) {}
+  }
+  return {
+    send(channel, data) {
+      fetch('/api/send/' + channel, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data || {}),
+      }).catch(() => {})
+    },
+    on(channel, cb) { handlers[channel] = cb },
+    async invoke(channel, data) {
+      const r = await fetch('/api/invoke/' + channel, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data || {}),
+      })
+      const j = await r.json()
+      return j.result
+    },
+  }
+})()
+
+// ── 状态 ──────────────────────────────────
+let agentRunning = false
+let sent = 0, hrReply = 0, autoReply = 0, skip = 0
+let logTimer = null
+const limit = () => parseInt(document.getElementById('dailyLimit').value)
+
+// ── 窗口控制 ─────────────────────────────
+function closeApp() { ipcRenderer.send('close-app'); window.close() }
+function hideApp()  { ipcRenderer.send('hide-app') }
+function openBoss() { ipcRenderer.send('open-boss') }
+
+// ── 标签切换 ─────────────────────────────
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'))
+  el.classList.add('active')
+  document.getElementById('panel-' + name).classList.add('active')
+}
+
+// ── 标签开关 ─────────────────────────────
+function toggleTag(el) { el.classList.toggle('on') }
+
+// ── 配置保存 ─────────────────────────────
+// 收集界面上的全部配置（启动流程时也会用到）
+function gatherConfig() {
+  const areas = [...document.querySelectorAll('#panel-rules .section:first-child .tag.on')]
+    .map(t => t.textContent.trim()).filter(a => a !== '不限')
+  const keywords = [...document.querySelectorAll('#panel-rules .section:nth-child(3) .tag.on')]
+    .map(t => t.textContent.trim())
+  return {
+    apiKey:    document.getElementById('apiKey').value.trim(),
+    minSal:    document.getElementById('minSal').value,
+    maxSal:    document.getElementById('maxSal').value,
+    daily:     limit(),
+    profile:   document.getElementById('myProfile').value,
+    model:     document.getElementById('model').value,
+    resumePath:document.getElementById('resumePath').value,
+    portfolio: document.getElementById('portfolio').value.trim(),
+    continuous:document.getElementById('continuous').checked,
+    skipWeekend:document.getElementById('skipWeekend').checked,
+    activeStart:document.getElementById('activeStart').value,
+    activeEnd:  document.getElementById('activeEnd').value,
+    hrInactiveDays: document.getElementById('hrInactiveDays').value,
+    areas, keywords,
+  }
+}
+
+function saveConfig() {
+  ipcRenderer.send('save-config', gatherConfig())
+  setFooter('✅ 配置已保存')
+}
+
+ipcRenderer.on('config-loaded', (_, cfg) => {
+  if (cfg.apiKey)     document.getElementById('apiKey').value     = cfg.apiKey
+  if (cfg.minSal)     document.getElementById('minSal').value     = cfg.minSal
+  if (cfg.maxSal)     document.getElementById('maxSal').value     = cfg.maxSal
+  if (cfg.daily)      { document.getElementById('dailyLimit').value = cfg.daily; document.getElementById('dlv').textContent = cfg.daily }
+  if (cfg.profile)    document.getElementById('myProfile').value    = cfg.profile
+  if (cfg.model)      document.getElementById('model').value        = cfg.model
+  if (cfg.resumePath) document.getElementById('resumePath').value   = cfg.resumePath
+  if (cfg.portfolio)  document.getElementById('portfolio').value    = cfg.portfolio
+  if (cfg.continuous !== undefined)  document.getElementById('continuous').checked  = cfg.continuous
+  if (cfg.skipWeekend !== undefined) document.getElementById('skipWeekend').checked = cfg.skipWeekend
+  if (cfg.activeStart) document.getElementById('activeStart').value = cfg.activeStart
+  if (cfg.activeEnd)   document.getElementById('activeEnd').value   = cfg.activeEnd
+  if (cfg.hrInactiveDays) document.getElementById('hrInactiveDays').value = cfg.hrInactiveDays
+})
+ipcRenderer.send('load-config')
+
+function pickResume() {
+  // 网页版没有系统文件框；简历实际走 BOSS 原生「发简历」，这里可不填。
+  const p = prompt('粘贴简历 PDF 的完整路径（可留空，简历默认走 BOSS 里你已上传的那份）：', document.getElementById('resumePath').value || '')
+  if (p !== null) { document.getElementById('resumePath').value = p.trim(); saveConfig() }
+}
+function openMsg() { ipcRenderer.send('open-msg') }
+
+// ── 日志 ─────────────────────────────────
+function addLog(text, type = 'info') {
+  const box = document.getElementById('logBox')
+  const now = new Date()
+  const t = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
+  const div = document.createElement('div')
+  div.className = 'log-line'
+  div.innerHTML = `<span class="log-t">${t}</span><span class="log-${type}">${text}</span>`
+  box.appendChild(div)
+  box.scrollTop = box.scrollHeight
+}
+function clearLog() {
+  document.getElementById('logBox').innerHTML =
+    '<div class="log-line"><span class="log-t">--:--</span><span class="log-info">已清空</span></div>'
+}
+
+// ── 指标更新 ─────────────────────────────
+function updateMetrics() {
+  document.getElementById('mSent').textContent  = sent
+  document.getElementById('mReply').textContent = hrReply
+  document.getElementById('mAuto').textContent  = autoReply
+  document.getElementById('mSkip').textContent  = skip
+  const lim = limit()
+  document.getElementById('pgText').textContent = `${sent} / ${lim}`
+  document.getElementById('pgFill').style.width  = Math.min(100, Math.round(sent / lim * 100)) + '%'
+  document.getElementById('statusCount').textContent = `今日 ${sent} / ${lim}`
+}
+
+function setFooter(text) { document.getElementById('footerTip').textContent = text }
+
+// ── 真实运行：监听主进程推来的 agent-event ────────────
+let flow1Running = false
+let flow2Running = false
+
+function refreshDot() {
+  const dot = document.getElementById('dot')
+  const st  = document.getElementById('statusText')
+  if (flow1Running || flow2Running) {
+    dot.className = 'dot running'
+    const parts = []
+    if (flow1Running) parts.push('流程一')
+    if (flow2Running) parts.push('流程二')
+    st.textContent = parts.join(' + ') + ' 运行中'
+  } else {
+    dot.className = 'dot'
+    st.textContent = '待启动'
+  }
+}
+
+function requireKey() {
+  if (!document.getElementById('apiKey').value.trim()) {
+    setFooter('⚠️ 请先在设置里填入 API Key')
+    switchTab('set', document.querySelectorAll('.tab')[4])
+    return false
+  }
+  return true
+}
+
+function toggleFlow1() {
+  if (flow1Running) { ipcRenderer.send('stop-flow1'); return }
+  if (!requireKey()) return
+  saveConfig()
+  ipcRenderer.send('start-flow1', gatherConfig())
+}
+
+function toggleFlow2() {
+  if (flow2Running) { ipcRenderer.send('stop-flow2'); return }
+  saveConfig()
+  ipcRenderer.send('start-flow2', gatherConfig())
+}
+
+// 主进程实时事件 → 界面回显
+ipcRenderer.on('agent-event', (_, evt) => {
+  switch (evt.type) {
+    case 'log':
+      addLog(evt.text, evt.level || 'info')
+      break
+    case 'metric':
+      sent = evt.sent; hrReply = evt.hrReply; autoReply = evt.resumeSent; skip = evt.skip
+      updateMetrics()
+      break
+    case 'status': {
+      if (evt.flow === 1) {
+        flow1Running = (evt.state === 'running')
+        const b = document.getElementById('btnFlow1')
+        b.textContent = flow1Running ? '⏹ 停止流程一' : '🚀 流程一 · 打招呼'
+        b.classList.toggle('stop', flow1Running)
+      } else if (evt.flow === 2) {
+        flow2Running = (evt.state === 'running' || evt.state === 'listening')
+        const b = document.getElementById('btnFlow2')
+        b.textContent = flow2Running ? '⏹ 停止流程二' : '👂 流程二 · 监听发简历'
+        b.classList.toggle('stop', flow2Running)
+        if (evt.state === 'listening') setFooter('流程二监听中，等待 HR 回复...')
+      }
+      refreshDot()
+      break
+    }
+    case 'stats':
+      renderRates(evt.rates)
+      if (evt.lastEval) renderDims(evt.lastEval)
+      break
+    case 'eval':
+      renderDims(evt.eval)
+      break
+    case 'login':
+      setLoginStatus(evt.state)
+      break
+    case 'notify':
+      addLog('🔔 ' + (evt.title || '') + '：' + (evt.body || ''), 'ok')
+      try { if (window.Notification && Notification.permission === 'granted') new Notification(evt.title || '提示', { body: evt.body || '' }) } catch (_) {}
+      break
+    case 'need-login':
+      setFooter('⚠️ 请在弹出的浏览器里扫码登录')
+      setLoginStatus('opening')
+      break
+  }
+})
+try { if (window.Notification && Notification.permission === 'default') Notification.requestPermission() } catch (_) {}
+
+// ── BOSS 登录 ─────────────────────────────────────
+function setLoginStatus(state) {
+  const el = document.getElementById('loginStatus')
+  const btn = document.getElementById('btnLogin')
+  if (state === 'opening') {
+    el.textContent = '连接状态：正在连接你的 Chrome…'; el.style.color = '#FEBC2E'
+    btn.textContent = '⏳ 连接中…'
+  } else if (state === 'logged-in') {
+    el.textContent = '连接状态：✅ 已连接 Chrome（确保已登录 BOSS）'; el.style.color = '#34D399'
+    btn.textContent = '🔌 重新连接 Chrome'
+  } else if (state === 'failed') {
+    el.textContent = '连接状态：❌ 连不上，请先双击「启动Chrome-调试模式.command」'; el.style.color = '#FF5F57'
+    btn.textContent = '🔌 连接 Chrome（先双击调试模式脚本）'
+  } else { // unknown
+    el.textContent = '连接状态：未连接（先开调试模式 Chrome）'; el.style.color = 'rgba(255,255,255,.4)'
+  }
+}
+function bossLogin() { setLoginStatus('opening'); ipcRenderer.send('boss-login') }
+
+// 初次加载查登录态
+ipcRenderer.invoke('login-status').then((yes) => {
+  setLoginStatus(yes ? 'logged-in' : 'unknown')
+}).catch(() => {})
+
+// ── 建议页：回复率表 / 10维度 / AI建议 ──────────────────
+const DIM_LABELS = {
+  skill:'技能匹配', industry:'行业匹配', experience:'经验年限', salary:'薪资匹配',
+  location:'地点匹配', responsibility:'职责契合', company:'公司团队',
+  overseas:'出海方向', growth:'成长空间', success:'成功概率',
+}
+
+function renderRates(rates) {
+  const box = document.getElementById('rateBox')
+  if (!rates || !rates.length) { box.textContent = '暂无数据，跑起来后自动统计'; return }
+  box.innerHTML = rates.map(r => {
+    const w = Math.max(2, r.rate)
+    return `<div style="margin-bottom:7px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+        <span>${r.cat}</span>
+        <span style="color:#34D399">${r.rate}% <span style="color:rgba(255,255,255,.3)">(${r.replied}/${r.greeted})</span></span>
+      </div>
+      <div class="progress-wrap"><div class="progress-fill" style="width:${w}%"></div></div>
+    </div>`
+  }).join('')
+}
+
+function renderDims(ev) {
+  const box = document.getElementById('dimBox')
+  if (!ev || !ev.dimensions) { box.textContent = '暂无评分'; return }
+  const d = ev.dimensions
+  const rows = Object.keys(DIM_LABELS).map(k => {
+    const v = (d[k] === undefined || d[k] === null) ? 0 : d[k]
+    const color = v >= 75 ? '#34D399' : v >= 50 ? '#FF9500' : 'rgba(255,255,255,.4)'
+    return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+      <span style="width:56px;flex-shrink:0;color:rgba(255,255,255,.45)">${DIM_LABELS[k]}</span>
+      <div style="flex:1;background:rgba(255,255,255,.08);border-radius:6px;height:6px;overflow:hidden">
+        <div style="width:${v}%;height:6px;background:${color}"></div></div>
+      <span style="width:26px;text-align:right;color:${color}">${v}</span>
+    </div>`
+  }).join('')
+  box.innerHTML =
+    `<div style="margin-bottom:6px;color:rgba(255,255,255,.7)">${ev.title || ''}` +
+    `${ev.company ? ' · ' + ev.company : ''}　<b style="color:#FF9500">综合 ${ev.score || 0}</b></div>` + rows
+}
+
+async function genAdvice() {
+  const btn = document.getElementById('adviceBtn')
+  const box = document.getElementById('adviceBox')
+  if (!requireKey()) return
+  btn.textContent = '生成中...'; btn.disabled = true
+  box.textContent = 'AI 正在结合你的简历和回复率数据分析...'
+  try {
+    const text = await ipcRenderer.invoke('generate-advice', gatherConfig())
+    box.textContent = text
+  } catch (e) {
+    box.textContent = '生成失败：' + (e && e.message ? e.message : e)
+  } finally {
+    btn.textContent = '重新生成'; btn.disabled = false
+  }
+}
+
+// 初次加载拉一次历史统计
+ipcRenderer.invoke('get-stats').then((s) => {
+  if (s) { renderRates(s.rates); if (s.lastEval) renderDims(s.lastEval) }
+}).catch(() => {})
+</script>
+</body>
+</html>

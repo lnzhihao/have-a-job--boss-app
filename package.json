@@ -1,0 +1,16 @@
+{
+  "name": "boss-job-agent",
+  "version": "1.0.0",
+  "description": "BOSS 找工作 Agent —— 连接你真实 Chrome，自动筛选+AI评分+打招呼+HR回复后发作品集/简历",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "postinstall": "playwright install chromium"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.40.0",
+    "pdf-parse": "^1.1.1",
+    "playwright": "^1.49.0"
+  },
+  "license": "MIT"
+}
