@@ -794,6 +794,7 @@ ipcRenderer.on('agent-event', (_, evt) => {
   switch (evt.type) {
     case 'log':
       addLog(evt.text, evt.level || 'info')
+      setFooter(evt.text)   // 底部常驻显示最新动作/报错，任何标签页都看得见
       break
     case 'metric':
       sent = evt.sent; hrReply = evt.hrReply; autoReply = evt.resumeSent; skip = evt.skip

@@ -188,7 +188,7 @@ class BossAgent extends EventEmitter {
     const endpoint = process.env.BOSS_CDP || 'http://127.0.0.1:9222'
     this.log(`连接你已打开的 Chrome（${endpoint}）...`, 'info')
     try {
-      this.browser = await chromium.connectOverCDP(endpoint)
+      this.browser = await chromium.connectOverCDP(endpoint, { timeout: 6000 })
     } catch (e) {
       throw new Error('连不上 Chrome 调试端口。请先双击「启动Chrome-调试模式.command」用调试模式打开 Chrome（并登录 BOSS），再回来启动。')
     }
@@ -487,7 +487,14 @@ ${evalText}
     if (this.flow1Running) return
     const cfg = { ...DEFAULTS, ...(opts.config || {}) }
     const apiKey = opts.apiKey
-    if (!apiKey) { this.log('⚠️ 未配置 API Key，无法评分', 'warn', 1); return }
+    if (!apiKey) { this.log('⚠️ 未填 API Key，先去「设置」填 DeepSeek key 并测试连接', 'warn', 1); this.status(1, 'stopped'); return }
+    // 先确认连上了调试 Chrome，避免一直卡在连接上
+    const connected = await this.isLoggedIn()
+    if (!connected) {
+      this.log('⚠️ 没连上 Chrome！请先双击「启动Chrome-调试模式.command」开调试 Chrome（并登录 BOSS），再点蓝色「连接 Chrome」，然后再点流程一', 'warn', 1)
+      this.status(1, 'stopped')
+      return
+    }
 
     this.flow1Running = true
     this.status(1, 'running')
@@ -731,6 +738,12 @@ ${evalText}
     if (this.flow2Running) return
     const cfg = { ...DEFAULTS, ...(opts.config || {}) }
     this._flow2Opts = opts
+    const connected = await this.isLoggedIn()
+    if (!connected) {
+      this.log('⚠️ 没连上 Chrome！请先双击「启动Chrome-调试模式.command」并点蓝色「连接 Chrome」，再点流程二', 'warn', 2)
+      this.status(2, 'stopped')
+      return
+    }
     this.flow2Running = true
     this.status(2, 'running')
     this.log('👂 流程二启动：HR 一回复就发作品集+简历（海投，不等第二句）', 'ok', 2)
