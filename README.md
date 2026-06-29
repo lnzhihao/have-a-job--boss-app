@@ -55,43 +55,29 @@ http://localhost:8848
 npm install
 ```
 
-启动 Chrome 调试模式：
+### 推荐：双击 `一键启动.command`
+
+平时只需双击 `一键启动.command`，它会自动完成：用调试模式打开 Chrome → 启动本地后台 → 自动开跑流程一/二 → 弹出一个桌面数据看板窗口。你只看不操作。
+
+第一次使用做一次性设置：
+
+1. 双击 `一键启动.command`，在弹出的 Chrome 里登录一次 BOSS 直聘（zhipin.com）。
+2. 在弹出的看板窗口 →「设置」：填写 AI API Key（默认 DeepSeek 的 `sk-...`）→ 点「测试连接」确认可用 → 填写作品集链接 →「保存配置」；在「规则」里设置城市、薪资、关键词、每日上限。
+3. 再双击一次 `一键启动.command`，这次就会自动开跑，看板实时显示数据。
+
+之后每次只要双击 `一键启动.command` 即可全自动。要停止：关掉看板窗口和 Chrome。
+
+### 进阶：手动启动
 
 ```bash
+# 1. 单独用调试模式打开 Chrome（也可双击 启动Chrome-调试模式.command），并登录 BOSS
 open -na "Google Chrome" --args --remote-debugging-port=9222
+
+# 2. 启动本地控制台
+npm start            # 打开 http://localhost:8848
 ```
 
-也可以直接双击项目里的：
-
-```text
-启动Chrome-调试模式.command
-```
-
-然后在这个 Chrome 里登录 BOSS 直聘：
-
-```text
-https://www.zhipin.com/web/geek/jobs
-```
-
-启动本地控制台：
-
-```bash
-npm start
-```
-
-打开：
-
-```text
-http://localhost:8848
-```
-
-在控制台里完成：
-
-1. 填写 AI API Key。
-2. 填写个人背景、目标岗位、作品集链接。
-3. 设置城市、薪资、关键词、每日上限等规则。
-4. 点击连接 Chrome。
-5. 启动流程一或流程二。
+在控制台里：填 API Key 和作品集链接 → 设规则 → 点「连接 Chrome」→ 启动流程一/流程二。
 
 ## 技术栈
 
@@ -118,8 +104,8 @@ http://localhost:8848
 | `server.js` | 本地服务入口，负责页面、配置、实时日志和流程控制 |
 | `src/engine.js` | 自动化核心逻辑，负责连接 Chrome 和操作 BOSS 页面 |
 | `src/index.html` | 本地控制台界面 |
-| `启动Chrome-调试模式.command` | 一键启动带调试端口的 Chrome |
-| `启动BOSS-Agent.command` | 一键启动本地 Agent |
+| `一键启动.command` | 一键搞定：开调试 Chrome + 启动后台 + 自动开跑 + 弹出桌面看板 |
+| `启动Chrome-调试模式.command` | 仅单独启动带调试端口的 Chrome（进阶用） |
 | `SPEC.md` | 功能规格和产品设计说明 |
 | `给ClaudeCode.md` | 选择器、实测流程和后续开发记录 |
 | `reference/boss_agent.py` | 早期参考实现 |

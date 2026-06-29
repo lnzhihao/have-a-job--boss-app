@@ -125,7 +125,24 @@ const server = http.createServer(async (req, res) => {
   res.writeHead(404); res.end('not found')
 })
 
+// 一键桌面 App 模式：BOSS_AUTOSTART=1 时，启动后自动连接 + 自动开跑流程一/二（你只看不操作）
+function autoStart() {
+  if (!process.env.BOSS_AUTOSTART) return
+  let cfg = {}
+  try { if (fs.existsSync(CONFIG_PATH)) cfg = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')) } catch (_) {}
+  const a = ensureAgent()
+  setTimeout(async () => {
+    if (!cfg.apiKey) { broadcast('agent-event', { type: 'log', flow: 1, level: 'warn', text: '⚠️ 还没填 API Key：请在看板「设置」里填 DeepSeek key 并保存，再重开。' }); return }
+    const ok = await a.isLoggedIn()
+    if (!ok) { broadcast('agent-event', { type: 'log', flow: 1, level: 'warn', text: '⚠️ 没连上调试 Chrome：请确认调试模式 Chrome 已开并登录 BOSS，然后重开本程序。' }); return }
+    broadcast('agent-event', { type: 'log', flow: 1, level: 'ok', text: '🚀 自动开跑：流程一(打招呼) + 流程二(监听发简历)' })
+    a.startFlow1(buildOpts(cfg))
+    a.startFlow2(buildOpts(cfg))
+  }, 4000)
+}
+
 server.listen(PORT, () => {
-  console.log(`\n✅ BOSS Agent 控制台已启动：http://localhost:${PORT}\n   浏览器会自动打开；没打开就手动访问上面这个地址。\n`)
-  exec(`open "http://localhost:${PORT}"`)
+  console.log(`\n✅ BOSS Agent 已启动：http://localhost:${PORT}\n`)
+  if (!process.env.BOSS_NO_OPEN) exec(`open "http://localhost:${PORT}"`)
+  autoStart()
 })
