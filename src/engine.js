@@ -366,6 +366,20 @@ class BossAgent extends EventEmitter {
     return { rates, lastEval }
   }
 
+  // ── 测试 API Key/模型是否可用（DeepSeek 或 Claude）───
+  async testLLM({ apiKey, model }) {
+    if (!apiKey) return { ok: false, msg: '未填 API Key' }
+    const m = model || DEFAULTS.model
+    const who = /^deepseek/i.test(m) ? 'DeepSeek' : 'Claude'
+    try {
+      const t = await this._chat({ apiKey, model: m, prompt: '只回复两个字：可用', maxTokens: 16 })
+      const txt = (t || '').trim()
+      return { ok: !!txt, msg: `${who} 返回「${txt.slice(0, 12) || '空'}」` }
+    } catch (e) {
+      return { ok: false, msg: `${who} 调用失败：${String(e.message || e).slice(0, 90)}` }
+    }
+  }
+
   // ── 统一 LLM 调用：按模型名自动选 DeepSeek 或 Claude ───
   async _chat({ apiKey, model, prompt, maxTokens = 600, json = false }) {
     const m = model || DEFAULTS.model

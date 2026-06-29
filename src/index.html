@@ -483,8 +483,11 @@
           <span class="api-icon">🔑</span>
           <input class="api-input" type="password" id="apiKey" placeholder="DeepSeek: sk-xxx ／ Claude: sk-ant-xxx">
         </div>
-        <div style="font-size:11px;color:rgba(255,255,255,.25);margin-top:4px">
-          用于 AI 评分/建议。上面「评分模型」选 DeepSeek 就填 DeepSeek 的 key，选 Claude 就填 sk-ant- 的。存本地，不上传。
+        <div class="input-row">
+          <button class="btn-ghost" style="flex:1" onclick="testKey()">🧪 测试连接（用当前 key 调一次）</button>
+        </div>
+        <div id="testResult" style="font-size:11px;color:rgba(255,255,255,.4);margin-top:4px">
+          用于 AI 评分/建议。默认走 DeepSeek（上面「评分模型」选 DeepSeek 就填 DeepSeek 的 key）。存本地，不上传。
         </div>
       </div>
 
@@ -700,6 +703,20 @@ function pickResume() {
   if (p !== null) { document.getElementById('resumePath').value = p.trim(); saveConfig() }
 }
 function openMsg() { ipcRenderer.send('open-msg') }
+
+async function testKey() {
+  const cfg = gatherConfig()
+  const box = document.getElementById('testResult')
+  if (!cfg.apiKey) { box.textContent = '⚠️ 先填 API Key'; box.style.color = '#FF5F57'; return }
+  box.textContent = '🧪 正在测试…'; box.style.color = '#FEBC2E'
+  try {
+    const r = await ipcRenderer.invoke('test-llm', { apiKey: cfg.apiKey, model: cfg.model })
+    box.textContent = (r && r.ok ? '✅ ' : '❌ ') + (r ? r.msg : '无响应')
+    box.style.color = (r && r.ok) ? '#34D399' : '#FF5F57'
+  } catch (e) {
+    box.textContent = '❌ 测试失败：' + (e && e.message ? e.message : e); box.style.color = '#FF5F57'
+  }
+}
 
 // ── 日志 ─────────────────────────────────
 function addLog(text, type = 'info') {

@@ -86,6 +86,7 @@ async function handleInvoke(ch, data) {
         const o = buildOpts(data)
         return await a.generateAdvice({ apiKey: o.apiKey, profile: o.profile, resumePath: o.resumePath, model: data.model })
       }
+      case 'test-llm': return await a.testLLM({ apiKey: data.apiKey, model: data.model })
       case 'pick-resume': return null // 网页版不能开系统文件框，简历路径请直接粘贴
       default: return null
     }
